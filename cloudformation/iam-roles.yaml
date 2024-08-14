@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'IAM Roles for Service Monitor'
+
+Parameters:
+  LambdaCodeS3Bucket:
+    Type: String
+    Description: The S3 bucket where Lambda code is stored.
+
+Resources:
+  # IAM Role for Lambda
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ServiceMonitorPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - ec2:DescribeRegions
+                  - ec2:DescribeInstances
+                  - rds:DescribeDBInstances
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - config:ListDiscoveredResources
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: '*'
+
+Outputs:
+  LambdaExecutionRoleArn:
+    Description: ARN of the Lambda execution role
+    Value: !GetAtt LambdaExecutionRole.Arn
+  BucketName:
+    Description: The S3 Bucket Name for Lambda code
+    Value: !Ref LambdaCodeS3Bucket

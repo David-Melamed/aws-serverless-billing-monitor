@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Service Activity Monitor and Notifier'
+
+Parameters:
+  EmailAddress:
+    Type: String
+    Description: Email address to receive notifications
+  SnsTopicName:
+    Type: String
+    Default: service-monitor-notifications
+    Description: Name of the SNS topic for notifications
+  LambdaCodeS3Bucket:
+    Type: String
+    Description: S3 Bucket where the Lambda code is stored
+  LambdaCodeS3Key:
+    Type: String
+    Description: S3 Key of the Lambda code zip file
+  S3BucketName:
+    Type: String
+    Default: service-monitor-lambda-code-bucket
+    Description: Name of the S3 bucket to store Lambda code
+  MonitoringIntervalMinutes:
+    Type: Number
+    Default: 60
+    Description: Interval in minutes between monitoring runs
+       
+Resources:
+  # S3 Bucket for Lambda Code
+  LambdaCodeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+
+  # Nested Stack for AWS Config
+  AwsConfigStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/${LambdaCodeS3Bucket}/templates/config.yaml"
+
+  # Nested Stack for Lambda and API Gateway
+  LambdaApiStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/${LambdaCodeS3Bucket}/templates/lambda-api.yaml"
+      Parameters:
+        SnsTopicName: !Ref SnsTopicName
+        LambdaCodeS3Bucket: !Ref LambdaCodeS3Bucket
+        LambdaCodeS3Key: !Ref LambdaCodeS3Key
+        EmailAddress: !Ref EmailAddress
+        MonitoringIntervalMinutes: !Ref MonitoringIntervalMinutes
+        LambdaExecutionRoleArn: !GetAtt IamRolesStack.Outputs.LambdaExecutionRoleArn
+
+  # Nested Stack for IAM Roles
+  IamRolesStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/${LambdaCodeS3Bucket}/templates/iam-roles.yaml"
+      Parameters:
+        LambdaCodeS3Bucket: !Ref LambdaCodeS3Bucket
+        
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !GetAtt LambdaApiStack.Outputs.ApiEndpoint
+  SNSTopicArn:
+    Description: SNS Topic ARN
+    Value: !GetAtt LambdaApiStack.Outputs.SNSTopicArn
+  ServiceMonitorFunctionName:
+    Description: Name of the Lambda function
+    Value: !GetAtt LambdaApiStack.Outputs.ServiceMonitorFunctionName
+  RoleArn:
+    Description: "ARN of the Lambda execution role from nested stack"
+    Value: !GetAtt IamRolesStack.Outputs.LambdaExecutionRoleArn
+  ConfigRoleArn:
+    Description: "ARN of the IAM role used by AWS Config"
+    Value: !GetAtt AwsConfigStack.Outputs.ConfigRoleArn
