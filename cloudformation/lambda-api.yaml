@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Lambda Function and API Gateway for Service Monitor'
+
+Parameters:
+  SnsTopicName:
+    Type: String
+  LambdaCodeS3Bucket:
+    Type: String
+  LambdaCodeS3Key:
+    Type: String
+  EmailAddress:
+    Type: String
+  MonitoringIntervalMinutes:
+    Type: Number
+  LambdaExecutionRoleArn:
+    Type: String
+    Description: ARN of the Lambda execution role
+    
+Resources:
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Ref SnsTopicName
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref EmailAddress
+          
+  # Lambda Function
+  ServiceMonitorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: service-monitor
+      Handler: service_monitor.lambda_handler
+      Role: !Ref LambdaExecutionRoleArn
+      Code:
+        S3Bucket: !Ref LambdaCodeS3Bucket
+        S3Key: !Ref LambdaCodeS3Key
+      Runtime: python3.8
+      Timeout: 900
+      MemorySize: 128
+      Environment:
+        Variables:
+          SNSTopicArn: !Ref SNSTopic
+      Tags:
+        - Key: Project
+          Value: ServiceMonitor
+        - Key: Environment
+          Value: dev
+
+  # API Gateway
+  ServiceMonitorApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: service-monitor-api
+      Description: API for Service Monitor
+
+  ApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ServiceMonitorApi.RootResourceId
+      PathPart: monitor
+      RestApiId: !Ref ServiceMonitorApi
+
+  ApiMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      HttpMethod: POST
+      ResourceId: !Ref ApiResource
+      RestApiId: !Ref ServiceMonitorApi
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ServiceMonitorFunction.Arn}/invocations
+
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: ApiMethod
+    Properties:
+      RestApiId: !Ref ServiceMonitorApi
+      StageName: dev
+
+  # Lambda Permission for API Gateway
+  LambdaApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt ServiceMonitorFunction.Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ServiceMonitorApi}/*/POST/monitor
+
+  MonitoringScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "Trigger the service monitor function periodically"
+      ScheduleExpression: !Sub "rate(${MonitoringIntervalMinutes} minutes)"
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ServiceMonitorFunction.Arn
+          Id: "ServiceMonitorSchedule"
+
+  MonitoringSchedulePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ServiceMonitorFunction
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt MonitoringScheduleRule.Arn
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${ServiceMonitorApi}.execute-api.${AWS::Region}.amazonaws.com/dev/monitor
+  SNSTopicArn:
+    Description: SNS Topic ARN
+    Value: !Ref SNSTopic
+  ServiceMonitorFunctionName:
+    Description: Name of the Lambda function
+    Value: !Ref ServiceMonitorFunction

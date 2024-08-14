@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Enable AWS Config with required resources'
+
+Resources:
+  # IAM Role for AWS Config
+  ConfigRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: config.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Path: "/"
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWS_ConfigRole'
+
+  # S3 Bucket for Config logs
+  ConfigBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Sub 'aws-config-logs-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+
+  # Bucket Policy
+  ConfigBucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref ConfigBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AWSConfigBucketPermissionsCheck
+            Effect: Allow
+            Principal:
+              Service: config.amazonaws.com
+            Action: s3:GetBucketAcl
+            Resource: !GetAtt ConfigBucket.Arn
+          - Sid: AWSConfigBucketDelivery
+            Effect: Allow
+            Principal:
+              Service: config.amazonaws.com
+            Action: s3:PutObject
+            Resource: !Sub 'arn:aws:s3:::${ConfigBucket}/AWSLogs/${AWS::AccountId}/*'
+            Condition:
+              StringEquals:
+                's3:x-amz-acl': 'bucket-owner-full-control'
+
+  # AWS Config Recorder
+  ConfigRecorder:
+    Type: 'AWS::Config::ConfigurationRecorder'
+    Properties:
+      Name: 'default'
+      RoleARN: !GetAtt ConfigRole.Arn
+      RecordingGroup:
+        AllSupported: true
+        IncludeGlobalResourceTypes: true
+
+  # AWS Config Delivery Channel
+  ConfigDeliveryChannel:
+    Type: 'AWS::Config::DeliveryChannel'
+    Properties:
+      S3BucketName: !Ref ConfigBucket
+      ConfigSnapshotDeliveryProperties:
+        DeliveryFrequency: 'One_Hour'
+
+Outputs:
+  ConfigBucketName:
+    Description: 'Name of the S3 bucket used for AWS Config logs'
+    Value: !Ref ConfigBucket
+  ConfigRoleArn:
+    Description: 'ARN of the IAM role used by AWS Config'
+    Value: !GetAtt ConfigRole.Arn
