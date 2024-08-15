@@ -4,7 +4,9 @@ Description: 'Lambda Function and API Gateway for Service Monitor'
 Parameters:
   SnsTopicName:
     Type: String
-  LambdaCodeS3Bucket:
+  LambdaCodeS3BucketName:
+    Type: String
+  LambdaAssetsS3BucketName:
     Type: String
   LambdaCodeS3Key:
     Type: String
@@ -33,7 +35,7 @@ Resources:
       Handler: service_monitor.lambda_handler
       Role: !Ref LambdaExecutionRoleArn
       Code:
-        S3Bucket: !Ref LambdaCodeS3Bucket
+        S3Bucket: !Ref LambdaCodeS3BucketName
         S3Key: !Ref LambdaCodeS3Key
       Runtime: python3.8
       Timeout: 900
@@ -41,6 +43,7 @@ Resources:
       Environment:
         Variables:
           SNSTopicArn: !Ref SNSTopic
+          RESOURCE_TYPES_BUCKET: !Ref LambdaAssetsS3BucketName
       Tags:
         - Key: Project
           Value: ServiceMonitor
