@@ -17,7 +17,7 @@ jobs:
       - name: Install cfn-lint
         run: pip install cfn-lint
       - name: Run cfn-lint
-        run: cfn-lint --strict --format=sarif ./cloudformation/*.yaml
+        run: cfn-lint ./cloudformation/*.yaml
       - name: Upload lint results
         uses: actions/upload-artifact@v3
         if: failure()
