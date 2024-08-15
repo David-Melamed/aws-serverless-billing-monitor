@@ -1,0 +1,26 @@
+name: CloudFormation Lint Check
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, reopened, synchronize]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install cfn-lint
+        run: pip install cfn-lint
+      - name: Run cfn-lint
+        run: cfn-lint --strict --format=sarif ./cloudformation/*.yaml
+      - name: Upload lint results
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: cfn-lint-results
+          path: cfn-lint-results.txt
