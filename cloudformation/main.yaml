@@ -7,44 +7,36 @@ Parameters:
     Description: Email address to receive notifications
   SnsTopicName:
     Type: String
-    Default: service-monitor-notifications
     Description: Name of the SNS topic for notifications
-  LambdaCodeS3Bucket:
-    Type: String
-    Description: S3 Bucket where the Lambda code is stored
   LambdaCodeS3Key:
     Type: String
     Description: S3 Key of the Lambda code zip file
-  S3BucketName:
+  LambdaCodeS3BucketName:
     Type: String
-    Default: service-monitor-lambda-code-bucket
     Description: Name of the S3 bucket to store Lambda code
+  LambdaAssetsS3BucketName:
+    Type: String
+    Description: Name of the S3 bucket to store Lambda code  
   MonitoringIntervalMinutes:
     Type: Number
-    Default: 60
     Description: Interval in minutes between monitoring runs
        
 Resources:
-  # S3 Bucket for Lambda Code
-  LambdaCodeBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Ref S3BucketName
-
   # Nested Stack for AWS Config
   AwsConfigStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: !Sub "https://s3.amazonaws.com/${LambdaCodeS3Bucket}/templates/config.yaml"
+      TemplateURL: !Sub "https://s3.amazonaws.com/${LambdaCodeS3BucketName}/templates/config.yaml"
 
   # Nested Stack for Lambda and API Gateway
   LambdaApiStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: !Sub "https://s3.amazonaws.com/${LambdaCodeS3Bucket}/templates/lambda-api.yaml"
+      TemplateURL: !Sub "https://s3.amazonaws.com/${LambdaCodeS3BucketName}/templates/lambda-api.yaml"
       Parameters:
         SnsTopicName: !Ref SnsTopicName
-        LambdaCodeS3Bucket: !Ref LambdaCodeS3Bucket
+        LambdaCodeS3BucketName: !Ref LambdaCodeS3BucketName
+        LambdaAssetsS3BucketName: !Ref LambdaAssetsS3BucketName
         LambdaCodeS3Key: !Ref LambdaCodeS3Key
         EmailAddress: !Ref EmailAddress
         MonitoringIntervalMinutes: !Ref MonitoringIntervalMinutes
@@ -54,9 +46,11 @@ Resources:
   IamRolesStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: !Sub "https://s3.amazonaws.com/${LambdaCodeS3Bucket}/templates/iam-roles.yaml"
+      TemplateURL: !Sub "https://s3.amazonaws.com/${LambdaCodeS3BucketName}/templates/iam-roles.yaml"
       Parameters:
-        LambdaCodeS3Bucket: !Ref LambdaCodeS3Bucket
+        LambdaCodeS3BucketName: !Ref LambdaCodeS3BucketName
+        LambdaAssetsS3BucketName: !Ref LambdaAssetsS3BucketName
+
         
 Outputs:
   ApiEndpoint:

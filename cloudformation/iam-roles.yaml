@@ -2,9 +2,12 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: 'IAM Roles for Service Monitor'
 
 Parameters:
-  LambdaCodeS3Bucket:
+  LambdaCodeS3BucketName:
     Type: String
     Description: The S3 bucket where Lambda code is stored.
+  LambdaAssetsS3BucketName:
+    Type: String
+    Description: The S3 bucket where Lambda assets are stored.
 
 Resources:
   # IAM Role for Lambda
@@ -42,11 +45,17 @@ Resources:
                 Action:
                   - sns:Publish
                 Resource: '*'
-
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub 'arn:aws:s3:::${LambdaAssetsS3BucketName}'
+                  - !Sub 'arn:aws:s3:::${LambdaAssetsS3BucketName}/*'
 Outputs:
   LambdaExecutionRoleArn:
     Description: ARN of the Lambda execution role
     Value: !GetAtt LambdaExecutionRole.Arn
   BucketName:
     Description: The S3 Bucket Name for Lambda code
-    Value: !Ref LambdaCodeS3Bucket
+    Value: !Ref LambdaCodeS3BucketName
