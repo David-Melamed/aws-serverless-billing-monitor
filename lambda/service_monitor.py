@@ -25,10 +25,24 @@
                 'body': json.dumps('Error occurred during execution')
             }
 
+    # def load_resource_types():
+    #     with open('resource_types.json', 'r') as file:
+    #         return json.load(file)
+
     def load_resource_types():
-        with open('resource_types.json', 'r') as file:
-            return json.load(file)
-    
+        s3_client = boto3.client('s3')
+        bucket_name = os.environ.get('RESOURCE_TYPES_BUCKET')
+        object_key = 'resource_types.json'
+
+        try:
+            response = s3_client.get_object(Bucket=bucket_name, Key=object_key)
+            resource_types_data = response['Body'].read()
+            resource_types = json.loads(resource_types_data)
+            return resource_types
+        except Exception as e:
+            logger.error(f"Failed to load resource types from S3: {str(e)}")
+            return []
+        
     def check_active_services():
         active_services = {}
         config_client = boto3.client('config')        
