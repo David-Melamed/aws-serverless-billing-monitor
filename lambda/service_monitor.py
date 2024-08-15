@@ -2,10 +2,8 @@ import os
 import boto3
 import json
 import logging
-
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
 def lambda_handler(event, context):
     try:
         active_services = check_active_services()
@@ -25,21 +23,23 @@ def lambda_handler(event, context):
             'body': json.dumps('Error occurred during execution')
         }
 
+def load_resource_types():
+    s3_client = boto3.client('s3')
+    bucket_name = os.environ.get('RESOURCE_TYPES_BUCKET')
+    object_key = 'resource_types.json'
+    try:
+        response = s3_client.get_object(Bucket=bucket_name, Key=object_key)
+        resource_types_data = response['Body'].read()
+        resource_types = json.loads(resource_types_data)
+        return resource_types
+    except Exception as e:
+        logger.error(f"Failed to load resource types from S3: {str(e)}")
+        return []
+    
 def check_active_services():
     active_services = {}
-    config_client = boto3.client('config')
-    
-    resource_types = [
-        'AWS::EC2::Instance',
-        'AWS::RDS::DBInstance',
-        'AWS::S3::Bucket',
-        'AWS::Lambda::Function',
-        'AWS::CloudTrail::Trail',
-        'AWS::DynamoDB::Table',
-        'AWS::ElasticLoadBalancingV2::LoadBalancer',
-        'AWS::CloudWatch::Alarm'
-    ]
-    
+    config_client = boto3.client('config')        
+    resource_types = load_resource_types()
     for resource_type in resource_types:
         try:
             resources = list_discovered_resources(config_client, resource_type)
@@ -49,7 +49,6 @@ def check_active_services():
             logger.error(f"Error discovering resources for {resource_type}: {str(e)}")
     
     return active_services
-
 def list_discovered_resources(config_client, resource_type):
     paginator = config_client.get_paginator('list_discovered_resources')
     response_iterator = paginator.paginate(
@@ -66,20 +65,21 @@ def list_discovered_resources(config_client, resource_type):
             })
     
     return resources
-
 def send_notification(active_services):
     sns = boto3.client('sns')
     topic_arn = os.environ['SNSTopicArn']
     
-    message = "Active AWS Services:\n\n"
+    excluded_resource_types = ['AWS::IAM::Role','AWS::IAM::User']
+    message = "Active AWS Services Count and Details:\n\n"
     for resource_type, resources in active_services.items():
-        if resources:
-            message += f"{resource_type}:\n"
+        if resource_type not in excluded_resource_types:
+            resource_count = len(resources)
+            message += f"{resource_type} (count={resource_count}):\n"
             for resource in resources:
-                message += f"- ID: {resource['resourceId']}, Name: {resource['resourceName']}\n"
+                message += f"Name: {resource['resourceName']}\n"
             message += "\n"
-    
-    if message == "Active AWS Services:\n\n":
+    # Check if the message has only the header, implying no active services were included
+    if message == "Active AWS Services Count and Details:\n\n":
         logger.warning("No active services to report")
         return
     
