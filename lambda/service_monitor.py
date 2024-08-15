@@ -53,7 +53,7 @@ def list_discovered_resources(config_client, resource_type):
     paginator = config_client.get_paginator('list_discovered_resources')
     response_iterator = paginator.paginate(
         resourceType=resource_type,
-        limit=1000
+        limit=100
     )
     
     resources = []
