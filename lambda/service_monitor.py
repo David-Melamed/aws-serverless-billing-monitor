@@ -2,8 +2,10 @@ import os
 import boto3
 import json
 import logging
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+
 def lambda_handler(event, context):
     try:
         active_services = check_active_services()
@@ -49,6 +51,7 @@ def check_active_services():
             logger.error(f"Error discovering resources for {resource_type}: {str(e)}")
     
     return active_services
+
 def list_discovered_resources(config_client, resource_type):
     paginator = config_client.get_paginator('list_discovered_resources')
     response_iterator = paginator.paginate(
@@ -61,23 +64,29 @@ def list_discovered_resources(config_client, resource_type):
         for resource in page['resourceIdentifiers']:
             resources.append({
                 'resourceId': resource['resourceId'],
-                'resourceName': resource.get('resourceName', 'N/A')
+                'resourceName': resource['resourceName']
             })
     
     return resources
+
 def send_notification(active_services):
     sns = boto3.client('sns')
     topic_arn = os.environ['SNSTopicArn']
     
     excluded_resource_types = ['AWS::IAM::Role','AWS::IAM::User']
+
     message = "Active AWS Services Count and Details:\n\n"
     for resource_type, resources in active_services.items():
         if resource_type not in excluded_resource_types:
             resource_count = len(resources)
             message += f"{resource_type} (count={resource_count}):\n"
             for resource in resources:
-                message += f"Name: {resource['resourceName']}\n"
-            message += "\n"
+                # Add bullet points and indentation for better readability
+                resource_name = resource['resourceName'] if resource['resourceName'] else 'N/A'
+                resource_id = resource['resourceId']
+                message += f"  • {resource_name} (ID: {resource_id})\n"
+            message += "\n"  # Add a blank line between resource types
+
     # Check if the message has only the header, implying no active services were included
     if message == "Active AWS Services Count and Details:\n\n":
         logger.warning("No active services to report")
