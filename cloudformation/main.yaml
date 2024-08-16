@@ -20,13 +20,18 @@ Parameters:
   MonitoringIntervalMinutes:
     Type: Number
     Description: Interval in minutes between monitoring runs
-       
+  ConfigLogsS3BucketName:
+    Type: String
+    Description:  Name of the S3 bucket to store Config logs
+
 Resources:
   # Nested Stack for AWS Config
   AwsConfigStack:
     Type: AWS::CloudFormation::Stack
     Properties:
       TemplateURL: !Sub "https://s3.amazonaws.com/${LambdaCodeS3BucketName}/templates/config.yaml"
+      Parameters:  
+        ConfigLogsS3BucketName: !Ref ConfigLogsS3BucketName
 
   # Nested Stack for Lambda and API Gateway
   LambdaApiStack:
