@@ -1,6 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: 'Enable AWS Config with required resources'
 
+Parameters:
+     ConfigLogsS3BucketName:
+        Type: String
+        Description:  Name of the S3 bucket to store Config logs
+
 Resources:
   # IAM Role for AWS Config
   ConfigRole:
@@ -21,7 +26,7 @@ Resources:
   ConfigBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
-      BucketName: !Sub 'aws-config-logs-${AWS::AccountId}-${AWS::Region}'
+      BucketName: !Ref ConfigLogsS3BucketName
       VersioningConfiguration:
         Status: Enabled
       BucketEncryption:
