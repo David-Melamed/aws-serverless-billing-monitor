@@ -41,16 +41,23 @@ done
 TEMP_DIR=$(mktemp -d)
 
 # Copy Lambda function code to the temporary directory
-cp "$PROJECT_ROOT_PATH/lambda/service_monitor.py" "$TEMP_DIR/"
+cp "$PROJECT_ROOT_PATH/lambda/"* "$TEMP_DIR/"
 
-# Change to the temporary directory
-cd "$TEMP_DIR"
+# Change permissions of all files in the temporary directory to 644
+chmod 777 "$TEMP_DIR/handler.py"
+ls -ltr $TEMP_DIR/
 
 # Zip the Lambda function code
-zip -r service_monitor.zip service_monitor.py
+zip -j -r "$TEMP_DIR/$SERVICE_NAME.zip" "$TEMP_DIR"/*
 
-# Upload the zip file to S3
-aws s3 cp service_monitor.zip "s3://$LAMBDA_CODE_S3_BUCKET_NAME/$LAMBDA_KEY"
+# Check if the zip file was created successfully
+if [[ -f "$TEMP_DIR/$SERVICE_NAME.zip" ]]; then
+    # Upload the zip file to S3
+    aws s3 cp "$TEMP_DIR/$SERVICE_NAME.zip" "s3://$LAMBDA_CODE_S3_BUCKET_NAME/$LAMBDA_KEY"
+else
+    echo "Error: Zip file $SERVICE_NAME.zip was not created."
+    exit 1
+fi
 
 if [ -d "$ASSETS_DIR" ]; then
     echo "Uploading assets to S3 bucket $LAMBDA_ASSETS_S3_BUCKET_NAME..."

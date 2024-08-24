@@ -33,6 +33,12 @@ Resources:
       Parameters:  
         ConfigLogsS3BucketName: !Ref ConfigLogsS3BucketName
 
+  # Nested Stack for DynamoDB Table for metadata
+  DynamoDBStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://s3.amazonaws.com/${LambdaCodeS3BucketName}/templates/dynamo-metadata.yaml"
+
   # Nested Stack for Lambda and API Gateway
   LambdaApiStack:
     Type: AWS::CloudFormation::Stack
@@ -46,6 +52,7 @@ Resources:
         EmailAddress: !Ref EmailAddress
         MonitoringIntervalMinutes: !Ref MonitoringIntervalMinutes
         LambdaExecutionRoleArn: !GetAtt IamRolesStack.Outputs.LambdaExecutionRoleArn
+        LambdaMetadataTableArn: !GetAtt DynamoDBStack.Outputs.LambdaMetadataTableArn
 
   # Nested Stack for IAM Roles
   IamRolesStack:
@@ -55,8 +62,8 @@ Resources:
       Parameters:
         LambdaCodeS3BucketName: !Ref LambdaCodeS3BucketName
         LambdaAssetsS3BucketName: !Ref LambdaAssetsS3BucketName
+        LambdaMetadataTableArn: !GetAtt DynamoDBStack.Outputs.LambdaMetadataTableArn
 
-        
 Outputs:
   ApiEndpoint:
     Description: API Gateway endpoint URL

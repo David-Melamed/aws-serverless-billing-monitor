@@ -15,15 +15,19 @@ for bucket in $LAMBDA_CODE_S3_BUCKET_NAME $LAMBDA_ASSETS_S3_BUCKET_NAME $CONFIG_
             echo "Bucket $bucket is versioned. Deleting all object versions..."
             
             # Delete all versions of all objects
-            aws s3api list-object-versions --bucket "$bucket" --region "$AWS_REGION" --query 'Versions[].{Key:Key,VersionId:VersionId}' --output text | \
+            aws s3api list-object-versions --bucket "$bucket" --region "$AWS_REGION" --query 'Versions[].{Key:Key,VersionId:VersionId}' --output text --page-size 1000 | \
             while read -r key version; do
-                aws s3api delete-object --bucket "$bucket" --key "$key" --version-id "$version" --region "$AWS_REGION"
+                if [ -n "$key" ] && [ -n "$version" ]; then
+                    aws s3api delete-object --bucket "$bucket" --key "$key" --version-id "$version" --region "$AWS_REGION"
+                fi
             done
             
             # Delete all delete markers
-            aws s3api list-object-versions --bucket "$bucket" --region "$AWS_REGION" --query 'DeleteMarkers[].{Key:Key,VersionId:VersionId}' --output text | \
+            aws s3api list-object-versions --bucket "$bucket" --region "$AWS_REGION" --query 'DeleteMarkers[].{Key:Key,VersionId:VersionId}' --output text --page-size 1000 | \
             while read -r key version; do
-                aws s3api delete-object --bucket "$bucket" --key "$key" --version-id "$version" --region "$AWS_REGION"
+                if [ -n "$key" ] && [ -n "$version" ]; then
+                    aws s3api delete-object --bucket "$bucket" --key "$key" --version-id "$version" --region "$AWS_REGION"
+                fi
             done
         else
             # If the bucket is not versioned, just remove all files
@@ -45,5 +49,11 @@ aws cloudformation delete-stack --stack-name "$STACK_NAME" --region "$AWS_REGION
 echo "Waiting for stack deletion to complete..."
 aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME" --region "$AWS_REGION"
 
-echo "Stack deletion complete!"
+# Confirm stack deletion
+if ! aws cloudformation describe-stacks --stack-name "$STACK_NAME" --region "$AWS_REGION" &>/dev/null; then
+    echo "Stack $STACK_NAME has been deleted successfully."
+else
+    echo "Error: Stack $STACK_NAME still exists or deletion failed."
+fi
+
 echo "Cleanup complete!"

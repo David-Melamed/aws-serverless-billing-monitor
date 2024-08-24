@@ -17,6 +17,9 @@ Parameters:
   LambdaExecutionRoleArn:
     Type: String
     Description: ARN of the Lambda execution role
+  LambdaMetadataTableArn:
+    Type: String
+    Description: ARN of the DynamoDB table
     
 Resources:
   SNSTopic:
@@ -32,7 +35,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName: service-monitor
-      Handler: service_monitor.lambda_handler
+      Handler: handler.lambda_handler
       Role: !Ref LambdaExecutionRoleArn
       Code:
         S3Bucket: !Ref LambdaCodeS3BucketName
@@ -44,6 +47,7 @@ Resources:
         Variables:
           SNSTopicArn: !Ref SNSTopic
           RESOURCE_TYPES_BUCKET: !Ref LambdaAssetsS3BucketName
+          DYNAMODB_METADATA_TABLE: !Ref LambdaMetadataTableArn
       Tags:
         - Key: Project
           Value: ServiceMonitor
