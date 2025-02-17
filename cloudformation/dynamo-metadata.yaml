@@ -7,15 +7,30 @@ Resources:
       AttributeDefinitions:
         - AttributeName: Id
           AttributeType: S
-        - AttributeName: CreatedAt
-          AttributeType: N
+        - AttributeName: ResourceType
+          AttributeType: S
+        - AttributeName: Timestamp
+          AttributeType: S
+        - AttributeName: ResourceName
+          AttributeType: S
       KeySchema:
         - AttributeName: Id
           KeyType: HASH
+        - AttributeName: ResourceType
+          KeyType: RANGE  # Sort Key
       GlobalSecondaryIndexes:
-        - IndexName: CreatedAtIndex
+        - IndexName: TimestampIndex
           KeySchema:
-            - AttributeName: CreatedAt
+            - AttributeName: Timestamp
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+        - IndexName: ResourceNameIndex
+          KeySchema:
+            - AttributeName: ResourceName
               KeyType: HASH
           Projection:
             ProjectionType: ALL

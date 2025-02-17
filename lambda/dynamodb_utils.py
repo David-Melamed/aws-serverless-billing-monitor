@@ -50,7 +50,7 @@ def write_metadata_to_dynamodb(active_services):
                 metadata_table.put_item(
                     Item={
                         'ResourceType': resource_type,
-                        'ResourceId': resource['resourceId'],
+                        'Id': resource['resourceId'],
                         'ResourceName': resource['resourceName'] if resource['resourceName'] else 'N/A',
                         'Timestamp': timestamp
                     }
